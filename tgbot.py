@@ -128,7 +128,7 @@ def main() -> None:
                     MessageHandler(Filters.text('Мой счет'), partial(handle_sroce, redis_connect=redis_connect)),
                     MessageHandler(Filters.text('Сдаться'), partial(handle_surrender, redis_connect=redis_connect)),
                     MessageHandler(Filters.text('Новый вопрос'), partial(handle_new_question_request, redis_connect=redis_connect)),
-                    MessageHandler(Filters.text, partial(handle_solution_attempt, redis_connect=redis_connect)),
+                    MessageHandler(Filters.text & ~Filters.command, partial(handle_solution_attempt, redis_connect=redis_connect)),
                 ],
             },
             fallbacks=[CommandHandler('cancel', cancel)]
