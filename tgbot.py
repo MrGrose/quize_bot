@@ -3,17 +3,15 @@ import logging
 from functools import partial
 
 import redis
+from arg_parser import create_parser
 from environs import Env
 from redis.exceptions import RedisError
 from telegram import ReplyKeyboardMarkup, Update
 from telegram.error import TelegramError
 from telegram.ext import (CallbackContext, CommandHandler, ConversationHandler,
                           Filters, MessageHandler, Updater)
-from utils import load_questions
 
-logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO
-)
+from quize_bot.questions_loader import load_questions_in_redis
 
 logger = logging.getLogger(__name__)
 
@@ -27,12 +25,12 @@ KEYBOARD = ReplyKeyboardMarkup(
     )
 
 
-def start(update: Update, context: CallbackContext, redis_connect) -> None:
+def start(update: Update, context: CallbackContext, redis_connect, filepath):
     user_id = update.effective_chat.id
     redis_connect.delete(f"{user_id}_question")
     redis_connect.set(f"{user_id}_score", 0)
     redis_connect.set(f"{user_id}_incorrect", 0)
-    load_questions(user_id, redis_connect)
+    load_questions_in_redis(user_id, redis_connect, filepath)
     context.bot.send_message(
         chat_id=user_id,
         text="Привет! Я бот для викторин!\nЧто бы начать нажми на кнопку «Новый вопрос»\n«/cancel»-для завершения",
@@ -98,13 +96,15 @@ def cancel(update: Update, context: CallbackContext):
 
 
 def main() -> None:
+    logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
     env = Env()
     env.read_env()
     redis_host = env.str("REDIS_HOST")
     redis_port = env.int("REDIS_PORT")
     redis_password = env.str("REDIS_PASSWORD")
     tg_token = env.str("TG_TOKEN")
-
+    parser = create_parser()
+    parsed_args = parser.parse_args()
     try:
         redis_connect = redis.Redis(
             host=redis_host,
@@ -118,7 +118,7 @@ def main() -> None:
 
         dispatcher = updater.dispatcher
         conv_handler = ConversationHandler(
-            entry_points=[CommandHandler('start', partial(start, redis_connect=redis_connect))],
+            entry_points=[CommandHandler('start', partial(start, redis_connect=redis_connect, filepath=parsed_args.p))],
             states={
                 NEW_QUESTION: [
                     MessageHandler(Filters.text('Мой счет'), partial(handle_sroce, redis_connect=redis_connect)),
@@ -138,9 +138,9 @@ def main() -> None:
         updater.idle()
 
     except RedisError as error:
-        logger.error(f"Ошибка Redis: {error}")
+        logger.exception(f"Ошибка Redis: {error}")
     except TelegramError as error:
-        logger.error(f"Ошибка Telegram: {error}")
+        logger.exception(f"Ошибка Telegram: {error}")
     except Exception as error:
         logger.exception(f"Ошибка: {error}")
 

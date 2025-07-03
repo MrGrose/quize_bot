@@ -1,11 +1,13 @@
 import json
 import logging
+from functools import partial
 
 import redis
 import vk_api
+from arg_parser import create_parser
 from environs import Env
+from questions_loader import load_questions_in_redis
 from redis.exceptions import RedisError
-from utils import load_questions
 from vk_api.exceptions import VkApiError
 from vk_api.keyboard import VkKeyboard, VkKeyboardColor
 from vk_api.longpoll import VkEventType, VkLongPoll
@@ -14,11 +16,11 @@ from vk_api.utils import get_random_id
 logger = logging.getLogger(__name__)
 
 
-def send_start(event, vk, keyboard, redis_connect):
+def send_start(event, vk, keyboard, redis_connect, filepath):
     redis_connect.delete(f"{event.user_id}_question")
     redis_connect.set(f"{event.user_id}_score", 0)
     redis_connect.set(f"{event.user_id}_incorrect", 0)
-    load_questions(event.user_id, redis_connect)
+    load_questions_in_redis(event.user_id, redis_connect, filepath)
     vk.messages.send(
         user_id=event.user_id,
         message="Привет! Я бот для викторин!\nЧто бы начать нажми на кнопку «Новый вопрос»\n«Стоп»-для завершения",
@@ -97,12 +99,16 @@ def send_sroce(event, vk, keyboard, redis_connect):
 
 
 def main():
+    logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
     env = Env()
     env.read_env()
     redis_host = env.str("REDIS_HOST")
     redis_port = env.int("REDIS_PORT")
     redis_password = env.str("REDIS_PASSWORD")
     vk_token = env.str("VK_GROUP_TOKEN")
+    parser = create_parser()
+    parsed_args = parser.parse_args()
+    filepath = parsed_args.p
     try:
         redis_connect = redis.Redis(
             host=redis_host,
@@ -121,24 +127,23 @@ def main():
         keyboard.add_button("Сдаться", color=VkKeyboardColor.NEGATIVE)
         keyboard.add_line()
         keyboard.add_button("Мой счет", color=VkKeyboardColor.PRIMARY)
+
         for event in longpoll.listen():
             if event.type == VkEventType.MESSAGE_NEW and event.to_me:
                 if event.text == "Стоп":
                     break
-                elif event.text == "Старт":
-                    send_start(event, vk, keyboard, redis_connect)
-                elif event.text == "Сдаться":
-                    send_surrender(event, vk, keyboard, redis_connect)
-                elif event.text == "Новый вопрос":
-                    send_new_question(event, vk, keyboard, redis_connect)
-                elif event.text == "Мой счет":
-                    send_sroce(event, vk, keyboard, redis_connect)
-                else:
-                    send_solution_attempt(event, vk, keyboard, redis_connect)
+                handler = {
+                    "Старт": partial(send_start, event, vk, keyboard, redis_connect, filepath),
+                    "Сдаться": partial(send_surrender, event, vk, keyboard, redis_connect),
+                    "Новый вопрос": partial(send_new_question, event, vk, keyboard, redis_connect),
+                    "Мой счет": partial(send_sroce, event, vk, keyboard, redis_connect),
+                }
+                handler.get(event.text, partial(send_solution_attempt, event, vk, keyboard, redis_connect))()
+
     except RedisError as error:
-        logger.error(f"Ошибка Redis: {error}")
+        logger.exception(f"Ошибка Redis: {error}")
     except VkApiError as error:
-        logger.error(f"Ошибка VkApi: {error}")
+        logger.exception(f"Ошибка VkApi: {error}")
     except Exception as error:
         logger.exception(f"Ошибка: {error}")
 
