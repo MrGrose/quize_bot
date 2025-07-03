@@ -6,7 +6,7 @@ import redis
 import vk_api
 from arg_parser import create_parser
 from environs import Env
-from questions_loader import load_questions_in_redis
+from questions_loader import load_questions_from_file, load_questions_in_redis
 from redis.exceptions import RedisError
 from vk_api.exceptions import VkApiError
 from vk_api.keyboard import VkKeyboard, VkKeyboardColor
@@ -16,11 +16,20 @@ from vk_api.utils import get_random_id
 logger = logging.getLogger(__name__)
 
 
-def send_start(event, vk, keyboard, redis_connect, filepath):
+def send_start(event, vk, keyboard, redis_connect, questions):
+    if redis_connect.exists(f"{event.user_id}_question"):
+        vk.messages.send(
+            user_id=event.user_id,
+            message="Нашли вашу игру!\nНажмите «Новый вопрос» для продолжения\n«Стоп»-для завершения",
+            random_id=get_random_id(),
+            keyboard=keyboard.get_keyboard(),
+        )
+        return
+
     redis_connect.delete(f"{event.user_id}_question")
     redis_connect.set(f"{event.user_id}_score", 0)
     redis_connect.set(f"{event.user_id}_incorrect", 0)
-    load_questions_in_redis(event.user_id, redis_connect, filepath)
+    load_questions_in_redis(event.user_id, redis_connect, questions)
     vk.messages.send(
         user_id=event.user_id,
         message="Привет! Я бот для викторин!\nЧто бы начать нажми на кнопку «Новый вопрос»\n«Стоп»-для завершения",
@@ -98,8 +107,6 @@ def send_score(event, vk, keyboard, redis_connect):
     )
 
 
-
-
 def main():
     logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
     env = Env()
@@ -130,13 +137,15 @@ def main():
         keyboard.add_line()
         keyboard.add_button("Мой счет", color=VkKeyboardColor.PRIMARY)
 
+        questions = load_questions_from_file(filepath)
+
         for event in longpoll.listen():
             if not (event.type == VkEventType.MESSAGE_NEW and event.to_me):
                 continue
             elif event.text == "Стоп":
                 break
             event_handler = {
-                "Старт": partial(send_start, event, vk, keyboard, redis_connect, filepath),
+                "Старт": partial(send_start, event, vk, keyboard, redis_connect, questions),
                 "Сдаться": partial(send_surrender, event, vk, keyboard, redis_connect),
                 "Новый вопрос": partial(send_new_question, event, vk, keyboard, redis_connect),
                 "Мой счет": partial(send_score, event, vk, keyboard, redis_connect),

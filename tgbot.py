@@ -5,7 +5,7 @@ from functools import partial
 import redis
 from arg_parser import create_parser
 from environs import Env
-from questions_loader import load_questions_in_redis
+from questions_loader import load_questions_from_file, load_questions_in_redis
 from redis.exceptions import RedisError
 from telegram import ReplyKeyboardMarkup, Update
 from telegram.error import TelegramError
@@ -24,12 +24,20 @@ KEYBOARD = ReplyKeyboardMarkup(
     )
 
 
-def start(update: Update, context: CallbackContext, redis_connect, filepath):
+def start(update: Update, context: CallbackContext, redis_connect, questions):
     user_id = update.effective_chat.id
+    if redis_connect.exists(f"{user_id}_question"):
+        context.bot.send_message(
+            chat_id=user_id,
+            text="Нашли вашу игру!\nНажмите «Новый вопрос» для продолжения\n«/cancel»-для завершения",
+            reply_markup=KEYBOARD
+        )
+        return NEW_QUESTION
+
     redis_connect.delete(f"{user_id}_question")
     redis_connect.set(f"{user_id}_score", 0)
     redis_connect.set(f"{user_id}_incorrect", 0)
-    load_questions_in_redis(user_id, redis_connect, filepath)
+    load_questions_in_redis(user_id, redis_connect, questions)
     context.bot.send_message(
         chat_id=user_id,
         text="Привет! Я бот для викторин!\nЧто бы начать нажми на кнопку «Новый вопрос»\n«/cancel»-для завершения",
@@ -113,12 +121,12 @@ def main() -> None:
             username="default",
             password=redis_password,
         )
-
+        questions = load_questions_from_file(filepath)
         updater = Updater(tg_token)
 
         dispatcher = updater.dispatcher
         conv_handler = ConversationHandler(
-            entry_points=[CommandHandler('start', partial(start, redis_connect=redis_connect, filepath=filepath))],
+            entry_points=[CommandHandler('start', partial(start, redis_connect=redis_connect, questions=questions))],
             states={
                 NEW_QUESTION: [
                     MessageHandler(Filters.text('Мой счет'), partial(handle_sroce, redis_connect=redis_connect)),

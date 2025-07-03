@@ -1,8 +1,7 @@
 import json
 
 
-def load_questions_in_redis(user_id, redis_connect, filepath):
-    questions = load_questions_from_file(filepath)
+def load_questions_in_redis(user_id, redis_connect, questions):
     for question in questions:
         redis_connect.rpush(f"{user_id}_question", json.dumps(question))
 
