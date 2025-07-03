@@ -12,6 +12,7 @@ def create_parser() -> 'argparse.ArgumentParser':
     parser.add_argument(
         "-p",
         default=default_path,
+        type=Path,
         help="Путь до файла с вопросами",
     )
     return parser

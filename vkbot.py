@@ -1,7 +1,6 @@
 import json
 import logging
 from functools import partial
-from pathlib import Path
 
 import redis
 import vk_api
@@ -88,7 +87,7 @@ def send_surrender(event, vk, keyboard, redis_connect):
     )
 
 
-def send_sroce(event, vk, keyboard, redis_connect):
+def send_score(event, vk, keyboard, redis_connect):
     current_score = redis_connect.get(f"{event.user_id}_score")
     incorrect_score = redis_connect.get(f"{event.user_id}_incorrect")
     vk.messages.send(
@@ -109,7 +108,7 @@ def main():
     vk_token = env.str("VK_GROUP_TOKEN")
     parser = create_parser()
     parsed_args = parser.parse_args()
-    filepath = Path(parsed_args.p)
+    filepath = parsed_args.p
     try:
         redis_connect = redis.Redis(
             host=redis_host,
@@ -137,7 +136,7 @@ def main():
                     "Старт": partial(send_start, event, vk, keyboard, redis_connect, filepath),
                     "Сдаться": partial(send_surrender, event, vk, keyboard, redis_connect),
                     "Новый вопрос": partial(send_new_question, event, vk, keyboard, redis_connect),
-                    "Мой счет": partial(send_sroce, event, vk, keyboard, redis_connect),
+                    "Мой счет": partial(send_score, event, vk, keyboard, redis_connect),
                 }
                 event_handler.get(event.text, partial(send_solution_attempt, event, vk, keyboard, redis_connect))()
 

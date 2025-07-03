@@ -1,7 +1,6 @@
 import json
 import logging
 from functools import partial
-from pathlib import Path
 
 import redis
 from arg_parser import create_parser
@@ -105,7 +104,7 @@ def main() -> None:
     tg_token = env.str("TG_TOKEN")
     parser = create_parser()
     parsed_args = parser.parse_args()
-    filepath = Path(parsed_args.p)
+    filepath = parsed_args.p
     try:
         redis_connect = redis.Redis(
             host=redis_host,
