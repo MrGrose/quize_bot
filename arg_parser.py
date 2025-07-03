@@ -11,7 +11,7 @@ def create_parser() -> 'argparse.ArgumentParser':
     default_path = Path("quiz-questions") / "1vs1200.txt"
     parser.add_argument(
         "-p",
-        default=str(default_path),
+        default=default_path,
         help="Путь до файла с вопросами",
     )
     return parser
