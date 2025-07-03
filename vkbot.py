@@ -1,6 +1,7 @@
 import json
 import logging
 from functools import partial
+from pathlib import Path
 
 import redis
 import vk_api
@@ -108,7 +109,7 @@ def main():
     vk_token = env.str("VK_GROUP_TOKEN")
     parser = create_parser()
     parsed_args = parser.parse_args()
-    filepath = parsed_args.p
+    filepath = Path(parsed_args.p)
     try:
         redis_connect = redis.Redis(
             host=redis_host,

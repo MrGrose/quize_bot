@@ -1,6 +1,7 @@
 import json
 import logging
 from functools import partial
+from pathlib import Path
 
 import redis
 from arg_parser import create_parser
@@ -104,6 +105,7 @@ def main() -> None:
     tg_token = env.str("TG_TOKEN")
     parser = create_parser()
     parsed_args = parser.parse_args()
+    filepath = Path(parsed_args.p)
     try:
         redis_connect = redis.Redis(
             host=redis_host,
@@ -117,7 +119,7 @@ def main() -> None:
 
         dispatcher = updater.dispatcher
         conv_handler = ConversationHandler(
-            entry_points=[CommandHandler('start', partial(start, redis_connect=redis_connect, filepath=parsed_args.p))],
+            entry_points=[CommandHandler('start', partial(start, redis_connect=redis_connect, filepath=filepath))],
             states={
                 NEW_QUESTION: [
                     MessageHandler(Filters.text('Мой счет'), partial(handle_sroce, redis_connect=redis_connect)),
