@@ -5,13 +5,12 @@ from functools import partial
 import redis
 from arg_parser import create_parser
 from environs import Env
+from questions_loader import load_questions_in_redis
 from redis.exceptions import RedisError
 from telegram import ReplyKeyboardMarkup, Update
 from telegram.error import TelegramError
 from telegram.ext import (CallbackContext, CommandHandler, ConversationHandler,
                           Filters, MessageHandler, Updater)
-
-from quize_bot.questions_loader import load_questions_in_redis
 
 logger = logging.getLogger(__name__)
 
