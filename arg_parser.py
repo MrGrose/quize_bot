@@ -1,4 +1,5 @@
 import argparse
+from pathlib import Path
 
 
 def create_parser() -> 'argparse.ArgumentParser':
@@ -7,9 +8,10 @@ def create_parser() -> 'argparse.ArgumentParser':
         description="""
         Скрипт для загрузки вопросов викторы бота
         """)
+    default_path = Path("quiz-questions") / "1vs1200.txt"
     parser.add_argument(
         "-p",
-        default="quiz-questions/1vs1200.txt",
+        default=str(default_path),
         help="Путь до файла с вопросами",
     )
     return parser
