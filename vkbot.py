@@ -132,13 +132,13 @@ def main():
             if event.type == VkEventType.MESSAGE_NEW and event.to_me:
                 if event.text == "Стоп":
                     break
-                handler = {
+                event_handler = {
                     "Старт": partial(send_start, event, vk, keyboard, redis_connect, filepath),
                     "Сдаться": partial(send_surrender, event, vk, keyboard, redis_connect),
                     "Новый вопрос": partial(send_new_question, event, vk, keyboard, redis_connect),
                     "Мой счет": partial(send_sroce, event, vk, keyboard, redis_connect),
                 }
-                handler.get(event.text, partial(send_solution_attempt, event, vk, keyboard, redis_connect))()
+                event_handler.get(event.text, partial(send_solution_attempt, event, vk, keyboard, redis_connect))()
 
     except RedisError as error:
         logger.exception(f"Ошибка Redis: {error}")
